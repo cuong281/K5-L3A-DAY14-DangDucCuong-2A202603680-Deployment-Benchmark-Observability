@@ -1,0 +1,2 @@
+concurrency=100 duration=5.24s rps=57.24 client_p95=3384.5ms server_p95=237.9ms server_cpu=370ms
+concurrency=100 duration=4.98s rps=60.23 client_p95=3691.0ms server_p95=232.2ms server_cpu=360ms

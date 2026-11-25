@@ -39,7 +39,9 @@ Kết quả chạy ngày 25/11/2026: `200`, `200`, `401`, `200`.
 for i in {1..12}; do curl -sS -o /dev/null -w '%{http_code} ' -X POST "$BASE/ask" -H 'Content-Type: application/json' -H "X-API-Key: $AGENT_API_KEY" -d '{"question":"Hello"}'; done; echo
 ```
 
-Kết quả: (điền kết quả rate limit)
+Kết quả lúc 22:30 ngày 25/11/2026: `200 200 200 200 200 200 200 200 200 429 429 429`. Request có key ngay trước vòng lặp đã dùng 1 lượt, nên đúng 10 request được chấp nhận rồi mới 429.
+
+`screenshots/test.png` là output của script chạy các lệnh trên, được kết xuất thành ảnh.
 
 ## Environment Variables Set
 
