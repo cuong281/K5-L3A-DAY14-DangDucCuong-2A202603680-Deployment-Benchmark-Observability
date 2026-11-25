@@ -1,0 +1,29 @@
+# Quality gate: chặn merge khi agent trả lời kém đi (Exercise 7.3).
+# run_eval.py trả exit code 1 khi accuracy < 85% hoặc có câu regression so với baseline,
+# nên job fail. Cần bật "Require status checks" cho nhánh main để chặn merge thật sự.
+name: quality-gate
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  eval:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: 06-lab-complete/benchmark-observability/develop
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r requirements.txt
+      - name: Run agent v2 and eval
+        run: |
+          # MOCK_ERROR_RATE=0: lỗi ngẫu nhiên của mock không được làm gate chập chờn
+          AGENT_VERSION=v2 MOCK_ERROR_RATE=0 PORT=8002 python app.py &
+          for _ in $(seq 30); do curl -sf http://localhost:8002/health && break; sleep 1; done
+          python eval/run_eval.py --url http://localhost:8002 --min-accuracy 0.85 \
+            --baseline reports/eval_v2_fixed.json

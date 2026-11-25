@@ -241,8 +241,9 @@ X-XSS-Protection: 1; mode=block
 
 ### Exercise 3.1 / 3.2: Deploy agent Part 6
 
-- Nền tảng chính: (điền Render hoặc Railway)
-- URL: (điền URL public)
+- Nền tảng chính: Render, deploy bằng Blueprint `06-lab-complete/render.yaml` (web service và Redis)
+- URL: https://day14-agent-rbpr.onrender.com (chi tiết: [DEPLOYMENT.md](DEPLOYMENT.md))
+- Kết quả 4 lệnh tự kiểm: `/health` 200, `/ready` 200, `/ask` không key 401, `/ask` có key 200
 - Screenshot: [dashboard](screenshots/dashboard.png), [running](screenshots/running.png), [test](screenshots/test.png)
 
 **So sánh `railway.toml` và `render.yaml`** (hai file trong `06-lab-complete/`):
@@ -618,3 +619,4 @@ Các quyết định chính:
 | Part 5 | Vì sao cổng 8000 bị chiếm, vì sao curl treo khi tắt một instance, cách làm 5.1–5.5 | Claude Code chỉ ra server bị Ctrl+Z, biến `SID` rỗng, lấy log chia tải, đo thử failover và soạn nháp phần giải thích | Tôi tự chạy server, gửi SIGTERM, bật stack 3 agent, tắt agent-1 và đo lại 6 request, output là của tôi. (điền thêm) |
 | Part 3 | So sánh hai file cấu hình, pipeline Cloud Run | Claude Code tra tài liệu Render và Railway, viết `railway.toml`, `render.yaml`, soạn nháp bảng so sánh và phần 3.3 | (điền) |
 | Part 6 | Hoàn thành các TODO theo từng bước | Claude Code viết toàn bộ `app/`, `Dockerfile`, `docker-compose.yml`, `.dockerignore`, `.env.example`, chạy thử từng bước và giải thích lý do | Tôi tự chạy thử config, rate limit và Compose ở từng bước, tự chạy `check_production_ready.py` đạt 12/12. (điền thêm) |
+| Part 7 (CP7) | Cách đo, cách đọc số liệu, sửa knowledge base | Claude Code viết `run_benchmark.sh`, thêm metric `agent_question_length_chars`, hai entry `KNOWLEDGE_BASE` và job CI, điền bảng từ file JSON và soạn nháp nhận xét | Tôi tự chạy `measure`, `fixed` và `diagnose`, các file trong `reports/` là của lần chạy đó. (điền thêm) |
