@@ -237,6 +237,36 @@ X-XSS-Protection: 1; mode=block
 
 **Nhận xét:** stack khai báo `REDIS_URL` và `QDRANT_URL`, nhưng `main.py` của bài mẫu chưa dùng hai service này. Cổng 443 được mở nhưng `nginx.conf` chỉ cấu hình `listen 80`, nên chưa có HTTPS.
 
+## Part 3: Cloud Deployment
+
+### Exercise 3.1 / 3.2: Deploy agent Part 6
+
+- Nền tảng chính: (điền Render hoặc Railway)
+- URL: (điền URL public)
+- Screenshot: [dashboard](screenshots/dashboard.png), [running](screenshots/running.png), [test](screenshots/test.png)
+
+**So sánh `railway.toml` và `render.yaml`** (hai file trong `06-lab-complete/`):
+
+| | `railway.toml` | `render.yaml` |
+|---|---|---|
+| Phạm vi | Một service: cách build, health check, restart | Cả hệ thống: web service và Redis trong cùng một file |
+| Redis | Không khai báo, phải thêm riêng trên dashboard hoặc CLI | Khai báo `type: keyvalue`, tự tạo khi deploy |
+| `REDIS_URL` | Đặt tay trong Variables | `fromService` tự lấy connection string |
+| Secret | Đặt trong Variables, không nằm trong file | `generateValue: true`, Render tự sinh và giữ |
+| Biến thường | Đặt trong Variables | Ghi ngay trong `envVars` |
+| Thư mục con | Chạy `railway up` trong `06-lab-complete/` | `rootDir: 06-lab-complete`, nhập Blueprint Path khi tạo |
+| Hạ tầng | Region, gói cấu hình ngoài file này | `region`, `plan` nằm trong file |
+| Kích hoạt | Đẩy code từ máy bằng CLI (hoặc nối GitHub) | Push GitHub, Render đọc file và deploy |
+
+Vì sao khác: `railway.toml` là cấu hình build và deploy của một service, còn `render.yaml` là Infrastructure as Code mô tả cả hệ thống, nên dựng lại môi trường từ Git dễ hơn. Đổi lại, sửa `render.yaml` có thể thay đổi cả Redis nên cần xem kỹ hơn. Tài liệu Railway (đọc ngày 25/11/2026) ghi config-as-code đã deprecated, file cũ chỉ chạy tiếp với service cũ tới 01/12/2026.
+
+### Exercise 3.3: Cloud Run
+
+`cloudbuild.yaml` là pipeline CI/CD chạy khi push lên `main`: `test` (cài thư viện, chạy pytest) → `build` image gắn tag `$COMMIT_SHA` và `latest` → `push` lên registry → `deploy` lên Cloud Run.
+Mỗi bước `waitFor` bước trước, nên test lỗi thì dừng, không build hay deploy. Deploy dùng tag `$COMMIT_SHA` nên biết chính xác commit nào đang chạy và dễ rollback.
+`service.yaml` mô tả service: 1 đến 10 instance, mỗi instance tối đa 80 request đồng thời, giới hạn 1 CPU / 512 MB, timeout 60 giây.
+Secret lấy từ Secret Manager. `startupProbe` gọi `/ready`, `livenessProbe` gọi `/health`.
+
 ## Part 4: API Security
 
 ### Exercise 4.1-4.3: Test results
@@ -545,6 +575,38 @@ count = 10
 - Mất một instance, history vẫn đủ 10 tin (5 câu hỏi, 5 câu trả lời) vì state nằm trong Redis.
 - Cả 6 request đều 200. Request 5 mất 3.08 giây: Nginx thử `172.19.0.4` (instance đã tắt) trước, thất bại rồi chuyển sang `172.19.0.3` nhờ `proxy_next_upstream`. Người dùng không thấy lỗi nhưng bị chậm, nên production cần `proxy_connect_timeout` ngắn và cập nhật danh sách upstream khi instance rời đi.
 
+## Part 6: Final Project
+
+Chạy `python check_production_ready.py` trong `06-lab-complete/` (WSL2, có Docker):
+
+```text
+  📋 Checklist Deliverable
+     ✅ Dockerfile (multi-stage, < 500 MB)
+     ✅ docker-compose.yml (agent + redis)
+     ✅ .dockerignore
+     ✅ Health check endpoint (GET /health)
+     ✅ Readiness endpoint (GET /ready)
+     ✅ API Key authentication
+     ✅ Rate limiting
+     ✅ Cost guard
+     ✅ Config từ environment variables
+     ✅ Structured logging
+     ✅ Graceful shutdown
+     ✅ Public URL ready (Railway / Render config)
+----------------------------------------------------------------
+  Result: 12/12 tiêu chí đạt · 43/43 checks passed
+  🎉 PASS 12/12 — PRODUCTION READY! Deploy nào!
+================================================================
+```
+
+Các quyết định chính:
+
+- **Thứ tự trong `/ask`:** auth → rate limit → budget → LLM → ghi chi phí. Request bị từ chối không tốn tiền LLM.
+- **Rate limit:** sliding window bằng sorted set, toàn bộ bước xoá, đếm, thêm nằm trong một script Lua nên đúng khi chạy nhiều worker. API key được băm trước khi làm tên key Redis.
+- **Cost guard:** tổng theo ngày và theo tháng trong Redis (UTC), vượt một trong hai thì 402. Kiểm tra trước và ghi sau nên có thể vượt nhẹ bằng chi phí các request đang chạy cùng lúc.
+- **Mất Redis:** `/ask` trả 503 (fail closed), `/ready` trả 503, `/health` vẫn 200.
+- **Lỗi:** input sai trả 422, lỗi ngoài dự kiến trả thông báo chung, traceback chỉ nằm trong log.
+
 ## AI log
 
 | Phần | Tôi hỏi gì | AI gợi ý gì | Tôi tự sửa và kiểm tra thế nào |
@@ -554,3 +616,5 @@ count = 10
 | Part 2 | Vì sao `docker build` báo 429, cách chạy các bài 2.2–2.4 | Claude Code xác định hết lượt tải của Docker Hub theo IP, đề xuất mirror `mirror.gcr.io`, tính phần trăm chênh lệch, lấy output `docker compose ps`, soạn nháp câu trả lời 2.1, 2.3 và sơ đồ 2.4 | Tôi tự cấu hình mirror, build hai image, chạy container, bật stack và chạy các lệnh curl. (điền thêm) |
 | Part 4 | Cách chạy 4.1–4.3, cách làm cost guard bằng Redis | Claude Code đưa lệnh, viết `cost_guard_redis.py` (script Lua) và chạy thử với Redis tạm, giải thích vì sao 429 ở request 10, soạn nháp câu trả lời | Tôi tự chạy các lệnh curl, vòng lặp 429 và `python cost_guard_redis.py`, output là của tôi. (điền thêm) |
 | Part 5 | Vì sao cổng 8000 bị chiếm, vì sao curl treo khi tắt một instance, cách làm 5.1–5.5 | Claude Code chỉ ra server bị Ctrl+Z, biến `SID` rỗng, lấy log chia tải, đo thử failover và soạn nháp phần giải thích | Tôi tự chạy server, gửi SIGTERM, bật stack 3 agent, tắt agent-1 và đo lại 6 request, output là của tôi. (điền thêm) |
+| Part 3 | So sánh hai file cấu hình, pipeline Cloud Run | Claude Code tra tài liệu Render và Railway, viết `railway.toml`, `render.yaml`, soạn nháp bảng so sánh và phần 3.3 | (điền) |
+| Part 6 | Hoàn thành các TODO theo từng bước | Claude Code viết toàn bộ `app/`, `Dockerfile`, `docker-compose.yml`, `.dockerignore`, `.env.example`, chạy thử từng bước và giải thích lý do | Tôi tự chạy thử config, rate limit và Compose ở từng bước, tự chạy `check_production_ready.py` đạt 12/12. (điền thêm) |
